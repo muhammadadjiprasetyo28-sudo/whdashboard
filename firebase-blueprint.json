@@ -1,0 +1,229 @@
+{
+  "entities": {
+    "SavedReconciliation": {
+      "title": "Saved Reconciliation",
+      "description": "A locked or saved reconciliation session (daily or monthly) for historical inspection",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the saved record"
+        },
+        "name": {
+          "type": "string",
+          "description": "A human-friendly label for this saved record"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["daily", "monthly"],
+          "description": "Whether this is a daily or monthly reconciliation"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date (YYYY-MM-DD) or month (YYYY-MM) of this reconciliation"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix millisecond timestamp of when this record was saved"
+        },
+        "area": {
+          "type": "string",
+          "description": "The associated field area"
+        },
+        "grandTotals": {
+          "type": "object",
+          "description": "The aggregated totals for quick inspection"
+        },
+        "items": {
+          "type": "array",
+          "description": "List of reconciled stock items matching the required columns layout"
+        }
+      },
+      "required": ["id", "name", "type", "date", "timestamp", "items"]
+    },
+    "SavedAccuracy": {
+      "title": "Saved Accuracy",
+      "description": "A saved historical record of daily stock accuracy across all areas",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the saved accuracy record"
+        },
+        "name": {
+          "type": "string",
+          "description": "A custom label/name for the saved accuracy session"
+        },
+        "reconType": {
+          "type": "string",
+          "description": "Reconciliation type (daily or monthly)"
+        },
+        "date": {
+          "type": "string",
+          "description": "The date or period of this accuracy check"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix millisecond timestamp when saved"
+        },
+        "totalSku": {
+          "type": "number",
+          "description": "Total SKU count across all areas"
+        },
+        "totalSelisih": {
+          "type": "number",
+          "description": "Total discrepant SKU count across all areas"
+        },
+        "accuracyPercent": {
+          "type": "number",
+          "description": "Overall accuracy percentage"
+        },
+        "areaSummary": {
+          "type": "array",
+          "description": "Summary per area (AccuracySummary[])"
+        },
+        "discrepancyList": {
+          "type": "array",
+          "description": "Detailed list of discrepant items (DiscrepancyItem[])"
+        },
+        "allStockItems": {
+          "type": "array",
+          "description": "Full list of compiled stock items for category filtering"
+        }
+      },
+      "required": ["id", "name", "reconType", "date", "timestamp", "totalSku", "totalSelisih", "accuracyPercent", "areaSummary", "discrepancyList", "allStockItems"]
+    },
+    "StockActivityLog": {
+      "title": "Stock Activity Log",
+      "description": "Real-time activity logs recording user modifications to stock for transparent SKU discrepancy tracking",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique ID of the log entry"
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix millisecond timestamp of the activity"
+        },
+        "username": {
+          "type": "string",
+          "description": "Name or username of the user who performed the action"
+        },
+        "area": {
+          "type": "string",
+          "description": "The warehouse branch area where the change occurred"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the item"
+        },
+        "actionType": {
+          "type": "string",
+          "enum": ["IN", "OUT", "TRANSFER", "ADJUSTMENT", "RECONCILIATION", "MASTER_UPDATE"],
+          "description": "Type of mutation or activity performed"
+        },
+        "pCode": {
+          "type": "string",
+          "description": "Product code / SKU"
+        },
+        "pName": {
+          "type": "string",
+          "description": "Product name"
+        },
+        "locator": {
+          "type": "string",
+          "description": "Source or primary locator rack"
+        },
+        "qty": {
+          "type": "number",
+          "description": "Quantity changed"
+        },
+        "impactSummary": {
+          "type": "string",
+          "description": "Transparent explanation of the effect on stock discrepancies"
+        }
+      },
+      "required": ["id", "timestamp", "username", "area", "category", "actionType", "pCode", "pName", "locator", "qty"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "System operational audit trail logs",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "module": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["username", "module", "action", "timestamp"]
+    },
+    "WhatsAppLog": {
+      "title": "WhatsApp Log",
+      "description": "Logs of WhatsApp queries and bot responses",
+      "type": "object",
+      "properties": {
+        "from": { "type": "string" },
+        "message": { "type": "string" },
+        "reply": { "type": "string" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["from", "message", "reply", "timestamp"]
+    },
+    "ActiveUser": {
+      "title": "Active User Session",
+      "description": "Heartbeat record of currently active users across branches",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string" },
+        "area": { "type": "string" },
+        "role": { "type": "string" },
+        "lastSeen": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["username", "area", "lastSeen"]
+    },
+    "ProductOverride": {
+      "title": "Master Product Override",
+      "description": "Custom SKU properties and area RPH values",
+      "type": "object",
+      "properties": {
+        "nama": { "type": "string" },
+        "satuan": { "type": "string" },
+        "rphMap": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "saved_reconciliations/{reconciliationId}": {
+      "schema": "SavedReconciliation",
+      "description": "Collection storing historical locked stock reconciliation records"
+    },
+    "saved_accuracy/{accuracyId}": {
+      "schema": "SavedAccuracy",
+      "description": "Collection storing historical daily/monthly stock accuracy metrics records"
+    },
+    "stock_activity_logs/{logId}": {
+      "schema": "StockActivityLog",
+      "description": "Collection storing stock change activity logs for SKU discrepancy auditing"
+    },
+    "audit_logs/{auditId}": {
+      "schema": "AuditLog",
+      "description": "Collection storing operational audit logs"
+    },
+    "whatsapp_logs/{waLogId}": {
+      "schema": "WhatsAppLog",
+      "description": "Collection storing WhatsApp incoming and outgoing messages"
+    },
+    "activeUsers/{sessionId}": {
+      "schema": "ActiveUser",
+      "description": "Collection storing active user presence heartbeats"
+    },
+    "master_produk_overrides/{pCode}": {
+      "schema": "ProductOverride",
+      "description": "Collection storing master product metadata overrides"
+    }
+  }
+}

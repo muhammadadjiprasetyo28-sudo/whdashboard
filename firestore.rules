@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Default catch-all deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 1. Saved Reconciliations
+    match /saved_reconciliations/{reconciliationId} {
+      allow read: if isValidId(reconciliationId);
+      allow create, update: if isValidId(reconciliationId)
+        && incoming().name is string && incoming().name.size() <= 200
+        && incoming().type in ['daily', 'monthly']
+        && incoming().date is string && incoming().date.size() <= 32
+        && incoming().timestamp is number
+        && incoming().items is list && incoming().items.size() <= 10000;
+      allow delete: if isValidId(reconciliationId);
+    }
+
+    // 2. Saved Accuracy Metrics
+    match /saved_accuracy/{accuracyId} {
+      allow read: if isValidId(accuracyId);
+      allow create, update: if isValidId(accuracyId)
+        && incoming().name is string && incoming().name.size() <= 200
+        && incoming().reconType in ['daily', 'monthly']
+        && incoming().date is string && incoming().date.size() <= 32
+        && incoming().timestamp is number
+        && incoming().totalSku is number
+        && incoming().totalSelisih is number
+        && incoming().accuracyPercent is number;
+      allow delete: if isValidId(accuracyId);
+    }
+
+    // 3. Stock Activity Logs (Append-only immutable audit entries)
+    match /stock_activity_logs/{logId} {
+      allow read: if isValidId(logId);
+      allow create: if isValidId(logId)
+        && incoming().username is string && incoming().username.size() <= 100
+        && incoming().area is string && incoming().area.size() <= 50
+        && incoming().actionType in ['IN', 'OUT', 'TRANSFER', 'ADJUSTMENT', 'RECONCILIATION', 'MASTER_UPDATE']
+        && incoming().pCode is string && incoming().pCode.size() <= 100
+        && incoming().timestamp is number;
+      allow update, delete: if false; // Immutable audit log
+    }
+
+    // 4. Operational Audit Logs (Append-only immutable log)
+    match /audit_logs/{auditId} {
+      allow read: if isValidId(auditId);
+      allow create: if isValidId(auditId)
+        && incoming().username is string && incoming().username.size() <= 100
+        && incoming().module is string && incoming().module.size() <= 100
+        && incoming().action is string && incoming().action.size() <= 100
+        && incoming().timestamp is number;
+      allow update, delete: if false;
+    }
+
+    // 5. WhatsApp Activity Logs
+    match /whatsapp_logs/{waLogId} {
+      allow read: if isValidId(waLogId);
+      allow create: if isValidId(waLogId)
+        && incoming().from is string && incoming().from.size() <= 100
+        && incoming().message is string && incoming().message.size() <= 1000
+        && incoming().timestamp is number;
+      allow update, delete: if false;
+    }
+
+    // 6. Active Users Presence
+    match /activeUsers/{sessionId} {
+      allow read: if isValidId(sessionId);
+      allow create, update: if isValidId(sessionId)
+        && incoming().username is string && incoming().username.size() <= 100
+        && incoming().area is string && incoming().area.size() <= 50;
+      allow delete: if isValidId(sessionId);
+    }
+
+    // 7. Master Produk Overrides
+    match /master_produk_overrides/{pCode} {
+      allow read: if isValidId(pCode);
+      allow create, update: if isValidId(pCode)
+        && (!('nama' in incoming()) || (incoming().nama is string && incoming().nama.size() <= 200))
+        && (!('satuan' in incoming()) || (incoming().satuan is string && incoming().satuan.size() <= 50));
+      allow delete: if isValidId(pCode);
+    }
+  }
+}

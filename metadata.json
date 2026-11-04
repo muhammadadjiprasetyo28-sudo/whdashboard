@@ -1,0 +1,6 @@
+{
+  "name": "Inventory Dashboard",
+  "description": "An interactive dashboard resolving and analyzing Google Sheets pivot tables for visual inventory insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
