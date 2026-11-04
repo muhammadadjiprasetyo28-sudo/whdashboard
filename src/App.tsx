@@ -314,15 +314,15 @@ export default function App() {
   // Show loading skeleton while verifying existing session
   if (isVerifyingSession) {
     return (
-      <div className="min-h-screen bg-[#070913] flex flex-col items-center justify-center p-6 text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(79,70,229,0.2),transparent_50%)] pointer-events-none" />
-        <div className="relative flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-cyan-400 p-[1.5px] shadow-2xl shadow-indigo-500/30 mb-5 animate-pulse">
-          <div className="w-full h-full bg-[#080c16] rounded-[14px] flex items-center justify-center text-indigo-400">
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-6 text-slate-800 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(79,70,229,0.08),transparent_50%)] pointer-events-none" />
+        <div className="relative flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-cyan-400 p-[1.5px] shadow-xl shadow-indigo-500/20 mb-5 animate-pulse">
+          <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center text-indigo-600">
             <MonogramLogo className="w-7 h-7" />
           </div>
         </div>
-        <div className="flex items-center gap-2.5 text-xs font-mono font-medium tracking-wide text-slate-300">
-          <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+        <div className="flex items-center gap-2.5 text-xs font-mono font-semibold tracking-wide text-slate-600">
+          <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
           <span>Memverifikasi sesi aman Dashboard WH...</span>
         </div>
       </div>
