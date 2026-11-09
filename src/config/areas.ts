@@ -37,3 +37,7 @@ export function getGasUrlForArea(area: string): string {
   if (area === "All Cabang" || area === "HQ") return "HQ";
   return AREA_URLS[area] || "";
 }
+
+// Konfigurasi Khusus Cabang Surabaya - Menu Accessories (Sheet INPUT)
+export const SURABAYA_ACCESSORIES_SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT/pub?output=csv";
+export const SURABAYA_ACCESSORIES_INPUT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT/pub?gid=1379708976&single=true&output=csv";
