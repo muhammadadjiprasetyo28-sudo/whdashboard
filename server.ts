@@ -3,6 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import Papa from "papaparse";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -337,6 +338,20 @@ async function startServer() {
   const serverInFlightSheets = new Map<string, Promise<any>>();
   const SERVER_SHEET_CACHE_TTL = 45 * 1000; // 45 seconds cache for identical reads
 
+  // Khusus Surabaya - Menu Accessories (Sheet INPUT) Live CSV Data Source
+  const SURABAYA_ACCESSORIES_INPUT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT/pub?gid=1379708976&single=true&output=csv";
+
+  function isAccessoriesRange(rangeStr: string): boolean {
+    if (!rangeStr) return false;
+    const clean = rangeStr.replace(/['"`]/g, '').trim().toUpperCase();
+    if (!clean.startsWith('INPUT')) return false;
+    if (clean.startsWith('INPUT RM') || clean.startsWith('INPUT MFG') || clean.startsWith('INPUT SUPPLIES')) {
+      return false;
+    }
+    const after = clean.slice(5).trim();
+    return after === '' || after.startsWith('!') || after.startsWith(':');
+  }
+
   // Concurrency limiter to prevent Google Apps Script overload and cold-start timeouts
   class GasConcurrencyLimiter {
     private running = 0;
@@ -417,33 +432,45 @@ async function startServer() {
     const values = payload?.values;
 
     try {
+      // Allowlist check with support for published Google Sheet CSV for Surabaya
+      const isSurabaya = (area && area.toLowerCase() === 'surabaya') ||
+        (gasUrl && (
+          gasUrl === AREA_GAS_ENDPOINTS['Surabaya'] ||
+          gasUrl.includes('AKfycbyNvvxxikV5eZE4eBqqH_H4Nhl6B7GJT1btQz9ncVih4FHvxnQE4kEQAM789LtUBBFmlg') ||
+          gasUrl.includes('2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT')
+        ));
+
       // 1. Resolve target Apps Script URL from strict server-side allowlist
       let targetUrl = '';
       if (area && AREA_GAS_ENDPOINTS[area]) {
         targetUrl = AREA_GAS_ENDPOINTS[area];
       } else if (gasUrl) {
         const trimmedGasUrl = String(gasUrl).trim();
-        // Check exact match or normalized URL
-        const isAllowlisted = Object.values(AREA_GAS_ENDPOINTS).some(url =>
-          url.trim() === trimmedGasUrl ||
-          url.split('?')[0].replace(/\/+$/, '') === trimmedGasUrl.split('?')[0].replace(/\/+$/, '')
-        );
-
-        if (!isAllowlisted) {
-          // Check if area name was passed in gasUrl
-          if (AREA_GAS_ENDPOINTS[trimmedGasUrl]) {
-            targetUrl = AREA_GAS_ENDPOINTS[trimmedGasUrl];
-          } else {
-            console.warn(`[Security Alert] Blocked attempt to proxy non-allowlisted URL: ${gasUrl}`);
-            return res.status(403).json({ error: "Akses ditolak: Target endpoint Google Sheets tidak terdaftar dalam allowlist resmi." });
-          }
+        if (trimmedGasUrl.includes('2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT')) {
+          targetUrl = AREA_GAS_ENDPOINTS['Surabaya'];
         } else {
-          // Use canonical allowlisted URL to prevent subtle URL variations
-          const foundKey = Object.keys(AREA_GAS_ENDPOINTS).find(k =>
-            AREA_GAS_ENDPOINTS[k].trim() === trimmedGasUrl ||
-            AREA_GAS_ENDPOINTS[k].split('?')[0].replace(/\/+$/, '') === trimmedGasUrl.split('?')[0].replace(/\/+$/, '')
+          // Check exact match or normalized URL
+          const isAllowlisted = Object.values(AREA_GAS_ENDPOINTS).some(url =>
+            url.trim() === trimmedGasUrl ||
+            url.split('?')[0].replace(/\/+$/, '') === trimmedGasUrl.split('?')[0].replace(/\/+$/, '')
           );
-          targetUrl = foundKey ? AREA_GAS_ENDPOINTS[foundKey] : trimmedGasUrl;
+
+          if (!isAllowlisted) {
+            // Check if area name was passed in gasUrl
+            if (AREA_GAS_ENDPOINTS[trimmedGasUrl]) {
+              targetUrl = AREA_GAS_ENDPOINTS[trimmedGasUrl];
+            } else {
+              console.warn(`[Security Alert] Blocked attempt to proxy non-allowlisted URL: ${gasUrl}`);
+              return res.status(403).json({ error: "Akses ditolak: Target endpoint Google Sheets tidak terdaftar dalam allowlist resmi." });
+            }
+          } else {
+            // Use canonical allowlisted URL to prevent subtle URL variations
+            const foundKey = Object.keys(AREA_GAS_ENDPOINTS).find(k =>
+              AREA_GAS_ENDPOINTS[k].trim() === trimmedGasUrl ||
+              AREA_GAS_ENDPOINTS[k].split('?')[0].replace(/\/+$/, '') === trimmedGasUrl.split('?')[0].replace(/\/+$/, '')
+            );
+            targetUrl = foundKey ? AREA_GAS_ENDPOINTS[foundKey] : trimmedGasUrl;
+          }
         }
       }
 
@@ -465,6 +492,74 @@ async function startServer() {
         }
       }
 
+      // Special routing: Cabang Surabaya - Menu Accessories (Sheet INPUT) -> Google Sheet Live CSV
+      if (isSurabaya && action === 'get' && isAccessoriesRange(cleanRange)) {
+        const cacheKey = `SURABAYA_ACCESSORIES_INPUT_CSV`;
+        const cached = serverSheetCache.get(cacheKey);
+        const forceFresh = !!(payload?.forceFresh || req.query?.forceFresh);
+        if (!forceFresh && cached && (Date.now() - cached.timestamp < SERVER_SHEET_CACHE_TTL)) {
+          return res.json(cached.data);
+        }
+
+        if (serverInFlightSheets.has(cacheKey)) {
+          try {
+            const coalescedData = await serverInFlightSheets.get(cacheKey)!;
+            return res.json(coalescedData);
+          } catch {
+            // continue to fresh fetch
+          }
+        }
+
+        const fetchPromise = (async () => {
+          console.log(`[Proxy Live] Mengambil data Accessories Surabaya dari Google Sheet CSV (sheet INPUT)...`);
+          const csvRes = await fetch(SURABAYA_ACCESSORIES_INPUT_CSV_URL, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; WMS-CommandCenter/1.0)',
+            },
+            cache: 'no-store'
+          });
+
+          if (!csvRes.ok) {
+            throw new Error(`Google Sheets CSV HTTP error ${csvRes.status}`);
+          }
+
+          const csvText = await csvRes.text();
+          const parsed = Papa.parse<string[]>(csvText, { skipEmptyLines: true });
+          const startIdx = cleanRange.toUpperCase().includes('A1:') ? 0 : 1;
+          const values = parsed.data.slice(startIdx).map(r => [
+            r[0] != null ? String(r[0]).trim() : '',
+            r[1] != null ? String(r[1]).trim() : '',
+            r[2] != null ? (isNaN(Number(r[2])) ? String(r[2]).trim() : Number(r[2])) : '',
+            r[3] != null ? String(r[3]).trim() : '',
+            r[4] != null ? String(r[4]).trim() : '',
+            r[5] != null ? String(r[5]).trim() : '',
+            r[6] != null ? String(r[6]).trim() : '',
+            r[7] != null ? String(r[7]).trim() : '',
+            r[8] != null ? String(r[8]).trim() : '',
+            r[9] != null ? String(r[9]).trim() : '',
+          ]);
+
+          const result = {
+            values,
+            source: "Google Sheet CSV Live (Sheet INPUT)",
+            totalRows: values.length,
+          };
+          serverSheetCache.set(cacheKey, { timestamp: Date.now(), data: result });
+          console.log(`[Proxy Live] Surabaya Accessories: ${values.length} baris sukses dimuat dari Google Sheet.`);
+          return result;
+        })();
+
+        serverInFlightSheets.set(cacheKey, fetchPromise);
+        try {
+          const result = await fetchPromise;
+          return res.json(result);
+        } catch (csvErr: any) {
+          console.error(`[Proxy Live Error] Gagal memuat CSV Accessories Surabaya:`, csvErr);
+        } finally {
+          serverInFlightSheets.delete(cacheKey);
+        }
+      }
+
       // 4. Validate values for mutation actions
       if ((action === 'append' || action === 'update') && (!Array.isArray(values) || values.length === 0)) {
         return res.status(400).json({ error: "Data 'values' harus berupa array tidak kosong." });
@@ -475,6 +570,9 @@ async function startServer() {
 
       // Invalidate server cache for this endpoint on mutations
       if (action === 'append' || action === 'update' || action === 'init') {
+        if (isSurabaya) {
+          serverSheetCache.delete('SURABAYA_ACCESSORIES_INPUT_CSV');
+        }
         for (const key of serverSheetCache.keys()) {
           if (key.startsWith(targetUrl)) {
             serverSheetCache.delete(key);
