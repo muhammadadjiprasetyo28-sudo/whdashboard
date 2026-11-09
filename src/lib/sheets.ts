@@ -286,12 +286,39 @@ export function clearSheetCache() {
   }
 }
 
-export async function fetchSheetData(gasUrl: string, range: string, forceFresh = false) {
+import { SURABAYA_ACCESSORIES_SHEET_URL, SURABAYA_ACCESSORIES_INPUT_CSV_URL } from "../config/areas";
+
+export { SURABAYA_ACCESSORIES_SHEET_URL, SURABAYA_ACCESSORIES_INPUT_CSV_URL };
+
+export function isAccessoriesRange(range: string): boolean {
+  if (!range) return false;
+  const clean = range.replace(/['"`]/g, '').trim().toUpperCase();
+  if (!clean.startsWith('INPUT')) return false;
+  if (clean.startsWith('INPUT RM') || clean.startsWith('INPUT MFG') || clean.startsWith('INPUT SUPPLIES')) {
+    return false;
+  }
+  const after = clean.slice(5).trim();
+  return after === '' || after.startsWith('!') || after.startsWith(':');
+}
+
+export function isSurabayaEndpoint(url: string, areaName?: string): boolean {
+  if (areaName && areaName.toLowerCase() === 'surabaya') return true;
+  if (!url) return false;
+  return url === 'https://script.google.com/macros/s/AKfycbyNvvxxikV5eZE4eBqqH_H4Nhl6B7GJT1btQz9ncVih4FHvxnQE4kEQAM789LtUBBFmlg/exec' ||
+    url.includes('AKfycbyNvvxxikV5eZE4eBqqH_H4Nhl6B7GJT1btQz9ncVih4FHvxnQE4kEQAM789LtUBBFmlg') ||
+    url.includes('2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT') ||
+    url.toLowerCase() === 'surabaya';
+}
+
+export async function fetchSheetData(gasUrl: string, range: string, forceFresh = false, areaName?: string) {
   if (!gasUrl || gasUrl === 'HQ' || !gasUrl.startsWith('http')) {
     console.warn(`[fetchSheetData] Ignored fetch request for invalid gasUrl: "${gasUrl}"`);
     return [];
   }
-  const cacheKey = `${gasUrl}||${range}`;
+
+  const isSurabaya = isSurabayaEndpoint(gasUrl, areaName);
+  const isAccessories = isAccessoriesRange(range);
+  const cacheKey = (isSurabaya && isAccessories) ? `SURABAYA_ACCESSORIES_INPUT_CSV` : `${gasUrl}||${range}`;
   const storageKey = `gsheet_cache_${cacheKey}`;
 
   // 1. Check in-memory Cache (if not forcing fresh)
@@ -329,7 +356,7 @@ export async function fetchSheetData(gasUrl: string, range: string, forceFresh =
     return JSON.parse(JSON.stringify(data));
   }
 
-  // 4. Define the actual fetch operation (with automatic retries)
+  // 4. Define the actual fetch operation (with automatic retries & CSV live fallback for Surabaya Accessories)
   const fetchPromise = (async () => {
     let attempts = 0;
     const maxAttempts = 3;
@@ -346,20 +373,67 @@ export async function fetchSheetData(gasUrl: string, range: string, forceFresh =
               'Content-Type': 'application/json',
               ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             },
-            body: JSON.stringify({ gasUrl, action: 'get', range })
+            body: JSON.stringify({
+              gasUrl,
+              action: 'get',
+              range,
+              area: isSurabaya ? 'Surabaya' : areaName,
+              forceFresh
+            })
           });
+
           if (!proxyRes.ok) {
-            const errData = await proxyRes.json().catch(() => ({}));
-            throw new Error(errData.error || `Google Sheets proxy gagal (HTTP ${proxyRes.status})`);
+            // Direct CSV fallback if Surabaya Accessories
+            if (isSurabaya && isAccessories) {
+              console.warn('[Proxy Fallback] Mengambil langsung CSV Google Sheet Accessories Surabaya...');
+              const rawData = await fetchAndParseCSV<string[]>(SURABAYA_ACCESSORIES_INPUT_CSV_URL, forceFresh);
+              const startIdx = range.toUpperCase().includes('A1:') ? 0 : 1;
+              const directValues = rawData.slice(startIdx).map(r => [
+                r[0] != null ? String(r[0]).trim() : '',
+                r[1] != null ? String(r[1]).trim() : '',
+                r[2] != null ? (isNaN(Number(r[2])) ? String(r[2]).trim() : Number(r[2])) : '',
+                r[3] != null ? String(r[3]).trim() : '',
+                r[4] != null ? String(r[4]).trim() : '',
+                r[5] != null ? String(r[5]).trim() : '',
+                r[6] != null ? String(r[6]).trim() : '',
+                r[7] != null ? String(r[7]).trim() : '',
+                r[8] != null ? String(r[8]).trim() : '',
+                r[9] != null ? String(r[9]).trim() : '',
+              ]);
+              data = { values: directValues };
+            } else {
+              const errData = await proxyRes.json().catch(() => ({}));
+              throw new Error(errData.error || `Google Sheets proxy gagal (HTTP ${proxyRes.status})`);
+            }
+          } else {
+            data = await proxyRes.json();
           }
-          data = await proxyRes.json();
         } else {
-          const url = `${gasUrl}?action=get&range=${encodeURIComponent(range)}&t=${Date.now()}`;
-          const res = await fetch(url, { cache: 'no-store' });
-          if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
+          // Server-side direct fallback
+          if (isSurabaya && isAccessories) {
+            const rawData = await fetchAndParseCSV<string[]>(SURABAYA_ACCESSORIES_INPUT_CSV_URL, forceFresh);
+            const startIdx = range.toUpperCase().includes('A1:') ? 0 : 1;
+            const directValues = rawData.slice(startIdx).map(r => [
+              r[0] != null ? String(r[0]).trim() : '',
+              r[1] != null ? String(r[1]).trim() : '',
+              r[2] != null ? (isNaN(Number(r[2])) ? String(r[2]).trim() : Number(r[2])) : '',
+              r[3] != null ? String(r[3]).trim() : '',
+              r[4] != null ? String(r[4]).trim() : '',
+              r[5] != null ? String(r[5]).trim() : '',
+              r[6] != null ? String(r[6]).trim() : '',
+              r[7] != null ? String(r[7]).trim() : '',
+              r[8] != null ? String(r[8]).trim() : '',
+              r[9] != null ? String(r[9]).trim() : '',
+            ]);
+            data = { values: directValues };
+          } else {
+            const url = `${gasUrl}?action=get&range=${encodeURIComponent(range)}&t=${Date.now()}`;
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) {
+              throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            data = await res.json();
           }
-          data = await res.json();
         }
 
         if (data && data.error) {
