@@ -509,12 +509,12 @@ function PencocokanData({ spreadsheetId, area }: { spreadsheetId: string; area: 
           await Promise.all(batch.map(async ([aName, aUrl]) => {
             try {
               const [tn, tr, tm, ts, pr, lr] = await Promise.all([
-                fetchSheetData(aUrl, "'INPUT'!A2:J", true).catch(() => []),
-                fetchSheetData(aUrl, "'INPUT RM'!A2:J", true).catch(() => []),
-                fetchSheetData(aUrl, "'INPUT MFG'!A2:J", true).catch(() => []),
-                fetchSheetData(aUrl, "'INPUT SUPPLIES'!A2:J", true).catch(() => []),
-                fetchSheetData(aUrl, "'MASTER_PRODUK'!A2:D", true).catch(() => []),
-                fetchSheetData(aUrl, "'MASTER_LOCATOR'!A2:E", true).catch(() => [])
+                fetchSheetData(aUrl, "'INPUT'!A2:J", true, aName).catch(() => []),
+                fetchSheetData(aUrl, "'INPUT RM'!A2:J", true, aName).catch(() => []),
+                fetchSheetData(aUrl, "'INPUT MFG'!A2:J", true, aName).catch(() => []),
+                fetchSheetData(aUrl, "'INPUT SUPPLIES'!A2:J", true, aName).catch(() => []),
+                fetchSheetData(aUrl, "'MASTER_PRODUK'!A2:D", true, aName).catch(() => []),
+                fetchSheetData(aUrl, "'MASTER_LOCATOR'!A2:E", true, aName).catch(() => [])
               ]);
 
             pr.filter((r: any[]) => r.length > 0 && r[0] && r[0] !== '#N/A' && r[1] !== '#N/A').forEach((r: any[]) => {
@@ -556,12 +556,12 @@ function PencocokanData({ spreadsheetId, area }: { spreadsheetId: string; area: 
         }
       } else {
         const [tn, tr, tm, ts, pr, lr] = await Promise.all([
-          fetchSheetData(spreadsheetId, "'INPUT'!A2:J", true).catch(() => []),
-          fetchSheetData(spreadsheetId, "'INPUT RM'!A2:J", true).catch(() => []),
-          fetchSheetData(spreadsheetId, "'INPUT MFG'!A2:J", true).catch(() => []),
-          fetchSheetData(spreadsheetId, "'INPUT SUPPLIES'!A2:J", true).catch(() => []),
-          fetchSheetData(spreadsheetId, "'MASTER_PRODUK'!A2:D", true).catch(() => []),
-          fetchSheetData(spreadsheetId, "'MASTER_LOCATOR'!A2:E", true).catch(() => [])
+          fetchSheetData(spreadsheetId, "'INPUT'!A2:J", true, area).catch(() => []),
+          fetchSheetData(spreadsheetId, "'INPUT RM'!A2:J", true, area).catch(() => []),
+          fetchSheetData(spreadsheetId, "'INPUT MFG'!A2:J", true, area).catch(() => []),
+          fetchSheetData(spreadsheetId, "'INPUT SUPPLIES'!A2:J", true, area).catch(() => []),
+          fetchSheetData(spreadsheetId, "'MASTER_PRODUK'!A2:D", true, area).catch(() => []),
+          fetchSheetData(spreadsheetId, "'MASTER_LOCATOR'!A2:E", true, area).catch(() => [])
         ]);
 
         pr.filter((r: any[]) => r.length > 0 && r[0] && r[0] !== '#N/A' && r[1] !== '#N/A').forEach((r: any[]) => {

@@ -282,12 +282,12 @@ function StockOverview({
             batch.map(async ([aName, aUrl]) => {
               try {
                 const [tn, tr, tm, ts, pr, lr] = await Promise.all([
-                  fetchSheetData(aUrl, "'INPUT'!A2:J", forceFresh).catch(() => []),
-                  fetchSheetData(aUrl, "'INPUT RM'!A2:J", forceFresh).catch(() => []),
-                  fetchSheetData(aUrl, "'INPUT MFG'!A2:J", forceFresh).catch(() => []),
-                  fetchSheetData(aUrl, "'INPUT SUPPLIES'!A2:J", forceFresh).catch(() => []),
-                  fetchSheetData(aUrl, "'MASTER_PRODUK'!A2:B", forceFresh).catch(() => []),
-                  fetchSheetData(aUrl, "'MASTER_LOCATOR'!A2:E", forceFresh).catch(() => []),
+                  fetchSheetData(aUrl, "'INPUT'!A2:J", forceFresh, aName).catch(() => []),
+                  fetchSheetData(aUrl, "'INPUT RM'!A2:J", forceFresh, aName).catch(() => []),
+                  fetchSheetData(aUrl, "'INPUT MFG'!A2:J", forceFresh, aName).catch(() => []),
+                  fetchSheetData(aUrl, "'INPUT SUPPLIES'!A2:J", forceFresh, aName).catch(() => []),
+                  fetchSheetData(aUrl, "'MASTER_PRODUK'!A2:B", forceFresh, aName).catch(() => []),
+                  fetchSheetData(aUrl, "'MASTER_LOCATOR'!A2:E", forceFresh, aName).catch(() => []),
                 ]);
 
               // Merge products map
@@ -342,12 +342,12 @@ function StockOverview({
         try {
           [txRowsNormal, txRowsRM, txRowsMfg, txRowsSupplies, pRows, lRows] =
             await Promise.all([
-              fetchSheetData(spreadsheetId, "'INPUT'!A2:J", forceFresh),
-              fetchSheetData(spreadsheetId, "'INPUT RM'!A2:J", forceFresh),
-              fetchSheetData(spreadsheetId, "'INPUT MFG'!A2:J", forceFresh),
-              fetchSheetData(spreadsheetId, "'INPUT SUPPLIES'!A2:J", forceFresh),
-              fetchSheetData(spreadsheetId, "'MASTER_PRODUK'!A2:B", forceFresh),
-              fetchSheetData(spreadsheetId, "'MASTER_LOCATOR'!A2:E", forceFresh),
+              fetchSheetData(spreadsheetId, "'INPUT'!A2:J", forceFresh, area),
+              fetchSheetData(spreadsheetId, "'INPUT RM'!A2:J", forceFresh, area),
+              fetchSheetData(spreadsheetId, "'INPUT MFG'!A2:J", forceFresh, area),
+              fetchSheetData(spreadsheetId, "'INPUT SUPPLIES'!A2:J", forceFresh, area),
+              fetchSheetData(spreadsheetId, "'MASTER_PRODUK'!A2:B", forceFresh, area),
+              fetchSheetData(spreadsheetId, "'MASTER_LOCATOR'!A2:E", forceFresh, area),
             ]);
         } catch (fetchErr: any) {
           if (retryOnMissing) {

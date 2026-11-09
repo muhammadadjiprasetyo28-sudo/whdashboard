@@ -321,11 +321,11 @@ function TransactionInput({ spreadsheetId, sheetName, title, description, isRead
       try {
         const [combined, loadedLRows] = await Promise.all([
           fetchCombinedProducts(forceFresh).catch(() => []),
-          fetchSheetData(spreadsheetId, "'MASTER_LOCATOR'!A2:E", forceFresh)
+          fetchSheetData(spreadsheetId, "'MASTER_LOCATOR'!A2:E", forceFresh, area)
         ]);
         pRows = combined.map(p => [p.kode, p.nama, p.satuan]);
         lRows = loadedLRows;
-        txRows = await fetchSheetData(spreadsheetId, `'${sheetName}'!A2:J`, forceFresh).catch((err: any) => {
+        txRows = await fetchSheetData(spreadsheetId, `'${sheetName}'!A2:J`, forceFresh, area).catch((err: any) => {
           const errMsg = String(err.message || '');
           if (errMsg.includes('Kisaran tidak ditemukan') || errMsg.includes('not found') || errMsg.includes('Range not found')) {
             console.warn(`Sheet ${sheetName} tidak ditemukan. Menggunakan array kosong.`);
@@ -361,7 +361,7 @@ function TransactionInput({ spreadsheetId, sheetName, title, description, isRead
           .map((r: any[]) => [String(r[0]).trim(), { kode: String(r[0]).trim(), nama: String(r[1] || '').trim(), satuan: String(r[2] || '').trim(), kategori: '' }])
       ).values());
       const uniqueL = Array.from(new Map(
-        lRows
+        (lRows || [])
           .filter((r: any[]) => r.length > 0 && (r[0] || r[1]) && r[0] !== '#N/A' && r[1] !== '#N/A')
           .map((r: any[]) => {
             const whGroup = String(r[0] || '').trim();
@@ -369,6 +369,26 @@ function TransactionInput({ spreadsheetId, sheetName, title, description, isRead
             return [whGroup || nama, { whGroup, nama, deskripsi: String(r[2] || '').trim(), whType: String(r[3] || '').trim(), area: String(r[4] || '').trim() }];
           })
       ).values());
+
+      // Auto-extract locators from actual transactions to guarantee filters always work
+      const locatorMap = new Map<string, Locator>();
+      uniqueL.forEach(l => {
+        if (l.whGroup) locatorMap.set(l.whGroup, l as Locator);
+        if (l.nama) locatorMap.set(l.nama, l as Locator);
+      });
+
+      (txRows || []).forEach((r: any[]) => {
+        const loc1 = String(r[5] || '').trim();
+        const loc2 = String(r[6] || '').trim();
+        if (loc1 && loc1 !== '#N/A' && !locatorMap.has(loc1)) {
+          locatorMap.set(loc1, { whGroup: loc1, nama: loc1, deskripsi: loc1, whType: 'WAREHOUSE', area: area || 'Surabaya' });
+        }
+        if (loc2 && loc2 !== '#N/A' && !locatorMap.has(loc2)) {
+          locatorMap.set(loc2, { whGroup: loc2, nama: loc2, deskripsi: loc2, whType: 'WAREHOUSE', area: area || 'Surabaya' });
+        }
+      });
+
+      const finalLocators = Array.from(locatorMap.values());
 
       const reversePMap = new Map<string, string>();
       uniqueP.forEach(p => {
@@ -410,7 +430,7 @@ function TransactionInput({ spreadsheetId, sheetName, title, description, isRead
 
       setTransactions(parsedTransactions);
       setProducts(uniqueP as Product[]);
-      setLocators(uniqueL as Locator[]);
+      setLocators(finalLocators);
 
     } catch (err: any) {
       const errMsg = String(err.message || '');

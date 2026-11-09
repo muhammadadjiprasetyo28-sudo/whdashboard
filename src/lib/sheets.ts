@@ -348,6 +348,43 @@ export async function fetchSheetData(gasUrl: string, range: string, forceFresh =
     }
   }
 
+  // Khusus Cabang Surabaya - Menu Accessories (Sheet INPUT):
+  // Di browser / hosting Vercel, langsung ambil dari Google Sheet CSV live untuk kehandalan penuh & kecepatan tinggi
+  if (isSurabaya && isAccessories && typeof window !== 'undefined') {
+    try {
+      console.log('[Live CSV] Mengambil data Accessories Surabaya langsung dari Google Sheet CSV...');
+      const rawData = await fetchAndParseCSV<string[]>(SURABAYA_ACCESSORIES_INPUT_CSV_URL, forceFresh);
+      if (rawData && rawData.length > 0) {
+        const startIdx = range.toUpperCase().includes('A1:') ? 0 : 1;
+        const directValues = rawData.slice(startIdx).map(r => [
+          r[0] != null ? String(r[0]).trim() : '',
+          r[1] != null ? String(r[1]).trim() : '',
+          r[2] != null ? (isNaN(Number(r[2])) ? String(r[2]).trim() : Number(r[2])) : '',
+          r[3] != null ? String(r[3]).trim() : '',
+          r[4] != null ? String(r[4]).trim() : '',
+          r[5] != null ? String(r[5]).trim() : '',
+          r[6] != null ? String(r[6]).trim() : '',
+          r[7] != null ? String(r[7]).trim() : '',
+          r[8] != null ? String(r[8]).trim() : '',
+          r[9] != null ? String(r[9]).trim() : '',
+        ]);
+
+        const cacheEntry: CacheEntry = { timestamp: Date.now(), data: directValues };
+        fetchCache.set(cacheKey, cacheEntry);
+        try {
+          if (window.sessionStorage) {
+            window.sessionStorage.setItem(storageKey, JSON.stringify(cacheEntry));
+          }
+        } catch {}
+
+        console.log(`[Live CSV] Sukses: ${directValues.length} baris Accessories Surabaya berhasil dimuat.`);
+        return JSON.parse(JSON.stringify(directValues));
+      }
+    } catch (e) {
+      console.warn('[Live CSV] Direct CSV fetch gagal, mencoba jalur proxy...', e);
+    }
+  }
+
   // 3. Check if a request for this exact key is already in flight (Coalescing / promise deduplication)
   if (inFlightRequests.has(cacheKey)) {
     console.log(`[Request Coalesced] Awaiting in-flight request for range: ${range}`);
@@ -407,6 +444,24 @@ export async function fetchSheetData(gasUrl: string, range: string, forceFresh =
             }
           } else {
             data = await proxyRes.json();
+            if (isSurabaya && isAccessories && (!data?.values || data.values.length === 0 || data.isFallback)) {
+              console.warn('[Surabaya Live CSV] Proxy respons kosong/fallback di Vercel, mengambil langsung CSV live dari Google Sheet...');
+              const rawData = await fetchAndParseCSV<string[]>(SURABAYA_ACCESSORIES_INPUT_CSV_URL, forceFresh);
+              const startIdx = range.toUpperCase().includes('A1:') ? 0 : 1;
+              const directValues = rawData.slice(startIdx).map(r => [
+                r[0] != null ? String(r[0]).trim() : '',
+                r[1] != null ? String(r[1]).trim() : '',
+                r[2] != null ? (isNaN(Number(r[2])) ? String(r[2]).trim() : Number(r[2])) : '',
+                r[3] != null ? String(r[3]).trim() : '',
+                r[4] != null ? String(r[4]).trim() : '',
+                r[5] != null ? String(r[5]).trim() : '',
+                r[6] != null ? String(r[6]).trim() : '',
+                r[7] != null ? String(r[7]).trim() : '',
+                r[8] != null ? String(r[8]).trim() : '',
+                r[9] != null ? String(r[9]).trim() : '',
+              ]);
+              data = { values: directValues };
+            }
           }
         } else {
           // Server-side direct fallback

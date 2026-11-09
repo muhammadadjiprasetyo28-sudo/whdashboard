@@ -132,11 +132,11 @@ const StockActivityLogView = memo(function StockActivityLogView({
         areasToFetch.map(async ({ name: aName, url: aUrl }) => {
           try {
             const [tn, tr, tm, ts, pr] = await Promise.all([
-              fetchSheetData(aUrl, "'INPUT'!A2:J", true).catch(() => []),
-              fetchSheetData(aUrl, "'INPUT RM'!A2:J", true).catch(() => []),
-              fetchSheetData(aUrl, "'INPUT MFG'!A2:J", true).catch(() => []),
-              fetchSheetData(aUrl, "'INPUT SUPPLIES'!A2:J", true).catch(() => []),
-              fetchSheetData(aUrl, "'MASTER_PRODUK'!A2:D", true).catch(() => [])
+              fetchSheetData(aUrl, "'INPUT'!A2:J", true, aName).catch(() => []),
+              fetchSheetData(aUrl, "'INPUT RM'!A2:J", true, aName).catch(() => []),
+              fetchSheetData(aUrl, "'INPUT MFG'!A2:J", true, aName).catch(() => []),
+              fetchSheetData(aUrl, "'INPUT SUPPLIES'!A2:J", true, aName).catch(() => []),
+              fetchSheetData(aUrl, "'MASTER_PRODUK'!A2:D", true, aName).catch(() => [])
             ]);
 
             // Populate master product lookup

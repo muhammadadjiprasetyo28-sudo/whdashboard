@@ -1,3 +1,5 @@
+import Papa from 'papaparse';
+
 const AREA_GAS_ENDPOINTS: Record<string, string> = {
   "Semarang": "https://script.google.com/macros/s/AKfycbyIIH9cK_28B_1snnP34O-sAYSbfD6AxKa469DpROT-bLusjZJVAalJC_287gG5IfN2/exec",
   "Medan": "https://script.google.com/macros/s/AKfycbztMdYKZVq9CzjyDV0hS4gIp28G2YYcJ06blnEX2R2TxNI7VakMMWWJWNtB02MT4h0kdg/exec",
@@ -11,6 +13,20 @@ const AREA_GAS_ENDPOINTS: Record<string, string> = {
   "Karawang": "https://script.google.com/macros/s/AKfycbwTI_3RCL4lle9lJei4qTv_Cm4VnCCFawNFLgZzJ_O83Y5T3qhHN6JxiX5QujfoRDegzQ/exec",
   "Jakarta": "https://script.google.com/macros/s/AKfycbwgor6oSmZzRE0MaFN51B2YaiDJe8dtV3guKrGdZLY9gLdQgFsk4tANGGm1B1aQMdZUFw/exec",
 };
+
+// Khusus Surabaya - Menu Accessories (Sheet INPUT) Live CSV Data Source
+const SURABAYA_ACCESSORIES_INPUT_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT/pub?gid=1379708976&single=true&output=csv";
+
+function isAccessoriesRange(rangeStr: string): boolean {
+  if (!rangeStr) return false;
+  const clean = rangeStr.replace(/['"`]/g, '').trim().toUpperCase();
+  if (!clean.startsWith('INPUT')) return false;
+  if (clean.startsWith('INPUT RM') || clean.startsWith('INPUT MFG') || clean.startsWith('INPUT SUPPLIES')) {
+    return false;
+  }
+  const after = clean.slice(5).trim();
+  return after === '' || after.startsWith('!') || after.startsWith(':');
+}
 
 export const config = {
   runtime: 'edge',
@@ -37,18 +53,75 @@ export default async function handler(req: Request) {
 
     const { area, gasUrl, action = 'get', range, values } = payload;
 
+    const isSurabaya = (area && area.toLowerCase() === 'surabaya') ||
+      (gasUrl && (
+        gasUrl === AREA_GAS_ENDPOINTS['Surabaya'] ||
+        gasUrl.includes('AKfycbyNvvxxikV5eZE4eBqqH_H4Nhl6B7GJT1btQz9ncVih4FHvxnQE4kEQAM789LtUBBFmlg') ||
+        gasUrl.includes('2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT')
+      ));
+
     let targetUrl = '';
     if (area && AREA_GAS_ENDPOINTS[area]) {
       targetUrl = AREA_GAS_ENDPOINTS[area];
     } else if (gasUrl) {
       const trimmedGasUrl = String(gasUrl).trim();
-      const isAllowlisted = Object.values(AREA_GAS_ENDPOINTS).some(
-        (url) => url.trim() === trimmedGasUrl || url.split('?')[0].replace(/\/+$/, '') === trimmedGasUrl.split('?')[0].replace(/\/+$/, '')
-      );
-      if (isAllowlisted) {
-        targetUrl = trimmedGasUrl;
-      } else if (AREA_GAS_ENDPOINTS[trimmedGasUrl]) {
-        targetUrl = AREA_GAS_ENDPOINTS[trimmedGasUrl];
+      if (trimmedGasUrl.includes('2PACX-1vTeVl9VyYWmkKl57ECvm05J_rD_hQed2joRFrqH_YIbs6oldm1F8NO4DeXH4JfTqDFJFP1Na44UDvIT')) {
+        targetUrl = AREA_GAS_ENDPOINTS['Surabaya'];
+      } else {
+        const isAllowlisted = Object.values(AREA_GAS_ENDPOINTS).some(
+          (url) => url.trim() === trimmedGasUrl || url.split('?')[0].replace(/\/+$/, '') === trimmedGasUrl.split('?')[0].replace(/\/+$/, '')
+        );
+        if (isAllowlisted) {
+          targetUrl = trimmedGasUrl;
+        } else if (AREA_GAS_ENDPOINTS[trimmedGasUrl]) {
+          targetUrl = AREA_GAS_ENDPOINTS[trimmedGasUrl];
+        }
+      }
+    }
+
+    const cleanRange = String(range || '').trim();
+
+    // Rute Khusus Vercel: Cabang Surabaya - Menu Accessories (Sheet INPUT) -> Ambil langsung Google Sheet CSV live
+    if (isSurabaya && action === 'get' && isAccessoriesRange(cleanRange)) {
+      try {
+        const csvRes = await fetch(SURABAYA_ACCESSORIES_INPUT_CSV_URL, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; WMS-CommandCenter/1.0)',
+          },
+          cache: 'no-store'
+        });
+
+        if (csvRes.ok) {
+          const csvText = await csvRes.text();
+          const parsed = Papa.parse<string[]>(csvText, { skipEmptyLines: true });
+          const startIdx = cleanRange.toUpperCase().includes('A1:') ? 0 : 1;
+          const values = parsed.data.slice(startIdx).map((r) => [
+            r[0] != null ? String(r[0]).trim() : '',
+            r[1] != null ? String(r[1]).trim() : '',
+            r[2] != null ? (isNaN(Number(r[2])) ? String(r[2]).trim() : Number(r[2])) : '',
+            r[3] != null ? String(r[3]).trim() : '',
+            r[4] != null ? String(r[4]).trim() : '',
+            r[5] != null ? String(r[5]).trim() : '',
+            r[6] != null ? String(r[6]).trim() : '',
+            r[7] != null ? String(r[7]).trim() : '',
+            r[8] != null ? String(r[8]).trim() : '',
+            r[9] != null ? String(r[9]).trim() : '',
+          ]);
+
+          return new Response(JSON.stringify({
+            values,
+            source: 'Google Sheet CSV Live (Sheet INPUT)',
+            totalRows: values.length,
+          }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 's-maxage=60, stale-while-revalidate=120'
+            }
+          });
+        }
+      } catch (err: any) {
+        console.error('Error fetching Surabaya CSV in api/sheets.ts:', err);
       }
     }
 
@@ -58,8 +131,6 @@ export default async function handler(req: Request) {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-
-    const cleanRange = String(range || '').trim();
 
     if (action === 'get') {
       const fetchUrl = `${targetUrl}?action=get&range=${encodeURIComponent(cleanRange)}&t=${Date.now()}`;
