@@ -648,8 +648,23 @@ function TransactionInput({ spreadsheetId, sheetName, title, description, isRead
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h2>
-          <p className="text-sm text-slate-500 mt-1">{description}</p>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h2>
+            {area === 'Surabaya' && sheetName === 'INPUT' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Google Sheet Live (INPUT)
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-500 mt-1">
+            {description}
+            {area === 'Surabaya' && sheetName === 'INPUT' && (
+              <span className="ml-2 text-xs text-emerald-600 font-medium">
+                • Sumber data: Google Sheet (Sheet INPUT)
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => loadData(true)} className="px-4 py-2 border border-slate-200 bg-white rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200">
